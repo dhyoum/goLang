@@ -3,56 +3,105 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"time"
 )
 
-const (
-	GAME_NUM   int = 5
-	PLAYER_NUM int = 2
-)
+type Dealer struct {
+	card Card
+}
 
-var cards = make([]int, 20)
-var players [PLAYER_NUM][2]int
+type Player struct {
+	card [2]int
+}
 
-func compare(p int, last_winner int) bool {
+func (p *Player) getPriority() (priority int) {
+	priority = (p.card[0] + p.card[1]) % 10
+	if p.card[0] == p.card[1] {
+		priority = 10 * p.card[0]
+	}
+	return
+}
 
-	player_result := (players[p][0] + players[p][1]) % 10
-	if players[p][0] == players[p][1] {
-		player_result += 10 * (players[p][0])
+type Card [20]int
+
+func createCard() Card {
+	var card Card
+	for i, _ := range card {
+		card[i] = i%10 + 1
 	}
-	last_result := (players[last_winner][0] + players[last_winner][1]) % 10
-	if players[last_winner][0] == players[last_winner][1] {
-		last_result += 10 * (players[last_winner][0])
+	return card
+}
+
+func (card *Card) show() {
+	fmt.Println("card : ", *card)
+}
+
+func (card *Card) shuffle() {
+	rand.Seed(time.Now().UnixNano())
+	for i, value := range card {
+		t := rand.Intn(20)
+		temp := value
+		card[i] = card[t]
+		card[t] = temp
 	}
-	if last_result < player_result {
-		return true
+}
+
+func (dealer *Dealer) deal() (p1, p2 Player) {
+	dealer.card.shuffle()
+	p1.card[0] = dealer.card[0]
+	p1.card[1] = dealer.card[1]
+
+	p2.card[0] = dealer.card[2]
+	p2.card[1] = dealer.card[3]
+
+	return
+}
+
+type Game struct {
+	history [100]int
+}
+
+func (game *Game) save(index, result int) {
+	game.history[index] = result
+}
+
+func (game *Game) check(p1, p2 *Player) (result int) {
+	if p1.getPriority() == p2.getPriority() {
+		result = 0
+	} else if p1.getPriority() < p2.getPriority() {
+		result = 1
+	} else {
+		result = 2
 	}
-	return false
+	return
+}
+
+func (game *Game) show() {
+
+	var result = make(map[int]int)
+	for times := 0; times < 100; times++ {
+		if value, ok := result[game.history[times]]; ok {
+			result[game.history[times]] = value + 1
+		} else {
+			result[game.history[times]] = 1
+		}
+	}
+	fmt.Println(game.history)
+	fmt.Println("Result of Game", result)
+	fmt.Printf("draw : %0.2f%%\n", float32(100*result[0]/100))
+	fmt.Printf("Player1 : %0.2f%%\n", float32(100*result[1]/100))
+	fmt.Printf("Player2 : %0.2f%%\n", float32(100*result[2]/100))
 }
 
 func main() {
-	var result [GAME_NUM]int
+	var dealer Dealer
+	dealer.card = createCard()
 
-	for i := 0; i < 10; i++ {
-		cards[i] = i + 1
-		cards[i+10] = i + 1
+	var game Game
+	for i := 0; i < 100; i++ {
+		p1, p2 := dealer.deal()
+		result := game.check(&p1, &p2)
+		game.save(i, result)
 	}
-	fmt.Println("Cards : ", cards)
-
-	for num := 0; num < GAME_NUM; num++ {
-		for p := 0; p < PLAYER_NUM; p++ {
-			players[p][0] = cards[rand.Intn(20)]
-			players[p][1] = cards[rand.Intn(20)]
-		}
-		fmt.Printf(" ======  GAME : %d =======\n", num)
-		fmt.Println("The card of player : ", players)
-		winner := 0
-		for p := 0; p < PLAYER_NUM; p++ {
-			if compare(p, winner) {
-				winner = p
-			}
-		}
-		result[num] = winner
-		fmt.Println("Winner : ", winner)
-	}
-	fmt.Println("Total Result : ", result)
+	game.show()
 }
